@@ -19,7 +19,8 @@ dev = [
     "pyyaml>=6",
     "types-PyYAML",
     "matplotlib>=3.9",
-    "dbt-bigquery>=1.10",
+    "dbt-core>=1.12,<1.13",
+    "dbt-bigquery>=1.12,<1.13",
 ]
 
 [project.scripts]

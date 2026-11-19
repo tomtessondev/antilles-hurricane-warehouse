@@ -1,0 +1,76 @@
+version: 2
+
+models:
+  - name: fct_storm_passages
+    description: One row per storm and island it passed within 100 km of.
+    columns:
+      - name: passage_id
+        data_tests: [unique, not_null]
+      - name: island
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Guadeloupe, Martinique, Saint-Barthelemy, Saint-Martin, Dominica, Saint Lucia]
+      - name: category
+        description: Saffir-Simpson category of the maximum wind within 100 km; null when unknown.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Depression, Tropical storm, Cat 1, Cat 2, Cat 3, Cat 4, Cat 5]
+  - name: agg_passages_by_decade
+    description: Passages per island, decade and category.
+  - name: fct_current_season
+    description: The latest season's passages.
+  - name: fct_passage_weather
+    description: The island's weather on the day of the closest approach and the days around it.
+
+unit_tests:
+  - name: passage_per_storm_and_island
+    description: A storm near two islands gives one row each, each with its own closest fix.
+    model: fct_storm_passages
+    given:
+      - input: ref('int_track_points_near_islands')
+        rows:
+          - {sid: S1, name: X, season: 2017, iso_time: "2017-09-18 00:00:00", nature: TS, wind_kt: 140, island: Dominica, distance_km: 20.0}
+          - {sid: S1, name: X, season: 2017, iso_time: "2017-09-18 06:00:00", nature: TS, wind_kt: 130, island: Dominica, distance_km: 5.0}
+          - {sid: S1, name: X, season: 2017, iso_time: "2017-09-18 12:00:00", nature: TS, wind_kt: 120, island: Guadeloupe, distance_km: 60.0}
+    expect:
+      rows:
+        - {passage_id: S1-Dominica, island: Dominica, closest_km: 5.0, closest_time: "2017-09-18 06:00:00", max_wind_kt_within_100km: 140, category: Cat 5}
+        - {passage_id: S1-Guadeloupe, island: Guadeloupe, closest_km: 60.0, closest_time: "2017-09-18 12:00:00", max_wind_kt_within_100km: 120, category: Cat 4}
+
+  - name: unknown_wind_gives_null_category
+    model: fct_storm_passages
+    given:
+      - input: ref('int_track_points_near_islands')
+        rows:
+          - {sid: OLD, name: UNNAMED, season: 1851, iso_time: "1851-08-20 00:00:00", nature: TS, wind_kt: null, island: Martinique, distance_km: 30.0}
+    expect:
+      rows:
+        - {passage_id: OLD-Martinique, max_wind_kt_within_100km: null, category: null}
+
+  - name: category_boundaries
+    model: fct_storm_passages
+    given:
+      - input: ref('int_track_points_near_islands')
+        rows:
+          - {sid: W33, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 33, island: Martinique, distance_km: 1.0}
+          - {sid: W34, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 34, island: Martinique, distance_km: 1.0}
+          - {sid: W63, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 63, island: Martinique, distance_km: 1.0}
+          - {sid: W64, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 64, island: Martinique, distance_km: 1.0}
+          - {sid: W83, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 83, island: Martinique, distance_km: 1.0}
+          - {sid: W96, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 96, island: Martinique, distance_km: 1.0}
+          - {sid: W113, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 113, island: Martinique, distance_km: 1.0}
+          - {sid: W136, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 136, island: Martinique, distance_km: 1.0}
+          - {sid: W137, name: A, season: 2000, iso_time: "2000-01-01 00:00:00", nature: TS, wind_kt: 137, island: Martinique, distance_km: 1.0}
+    expect:
+      rows:
+        - {sid: W33, category: Depression}
+        - {sid: W34, category: Tropical storm}
+        - {sid: W63, category: Tropical storm}
+        - {sid: W64, category: Cat 1}
+        - {sid: W83, category: Cat 2}
+        - {sid: W96, category: Cat 3}
+        - {sid: W113, category: Cat 4}
+        - {sid: W136, category: Cat 4}
+        - {sid: W137, category: Cat 5}

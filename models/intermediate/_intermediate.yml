@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: int_track_points_near_islands
+    description: Track fixes within 100 km of an island's point (BigQuery GIS).
+
+unit_tests:
+  - name: just_outside_the_radius
+    description: A fix 94 km from Guadeloupe's point counts; one 106 km away does not.
+    model: int_track_points_near_islands
+    given:
+      - input: ref('islands')
+        rows:
+          - {name: Guadeloupe, lat: 16.25, lon: -61.55}
+      - input: ref('stg_tracks')
+        rows:
+          - {sid: IN, name: A, season: 2000, iso_time: "2000-09-01 00:00:00", nature: TS, lat: 17.10, lon: -61.55, wind_kt: 50, pressure_hpa: 990}
+          - {sid: OUT, name: B, season: 2000, iso_time: "2000-09-01 00:00:00", nature: TS, lat: 17.20, lon: -61.55, wind_kt: 50, pressure_hpa: 990}
+    expect:
+      rows:
+        - {sid: IN, island: Guadeloupe}

@@ -1,0 +1,8 @@
+version: 2
+
+seeds:
+  - name: islands
+    description: One point per island (same as `hurricane_loaders.islands`, a test checks it).
+    columns:
+      - name: name
+        data_tests: [unique, not_null]
