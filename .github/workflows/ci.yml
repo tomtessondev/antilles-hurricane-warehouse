@@ -18,3 +18,31 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: pytest
+
+  # BigQuery steps need the repository's federated identity, which a fork's pull request
+  # does not get: they run on pushes and on pull requests from this repository only.
+  bigquery:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: python
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT: antilles-hurricanes
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - name: dbt unit tests (fixed rows, a few KB each)
+        run: dbt build --profiles-dir . --select test_type:unit
+      - name: Cost check (dry runs, nothing billed)
+        run: |
+          dbt compile --profiles-dir .
+          python -m hurricane_loaders.cost_check target/manifest.json --budget-mb 200
