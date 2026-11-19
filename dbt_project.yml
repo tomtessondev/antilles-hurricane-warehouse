@@ -1,0 +1,28 @@
+name: antilles_hurricanes
+version: "0.1.0"
+config-version: 2
+profile: antilles_hurricanes
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  antilles_hurricanes:
+    staging:
+      +schema: staging
+    intermediate:
+      +schema: intermediate
+      +materialized: table
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  antilles_hurricanes:
+    +schema: staging
+    islands:
+      # Explicit types: an empty build (CI) cannot infer them from the rows.
+      +column_types: {name: string, lat: float64, lon: float64}
