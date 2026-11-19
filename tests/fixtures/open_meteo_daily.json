@@ -1,0 +1,12 @@
+{
+  "latitude": 16.25,
+  "longitude": -61.55,
+  "timezone": "GMT",
+  "daily_units": {"time": "iso8601", "precipitation_sum": "mm", "wind_speed_10m_max": "km/h", "wind_gusts_10m_max": "km/h"},
+  "daily": {
+    "time": ["1989-09-16", "1989-09-17"],
+    "precipitation_sum": [41.2, 188.6],
+    "wind_speed_10m_max": [38.5, 96.1],
+    "wind_gusts_10m_max": [71.3, null]
+  }
+}
