@@ -1,10 +1,8 @@
-{#- Incremental by season partition: a daily run rewrites the current and previous seasons
-    only (the storms being tracked, and late revisions). `dbt build --full-refresh`
-    rebuilds every season. -#}
+{#- A full table, rebuilt every run: NOAA revises past seasons, and the whole history is
+    8 MB, so an incremental model would save almost nothing and keep stale seasons. -#}
 {{
     config(
-        materialized="incremental",
-        incremental_strategy="insert_overwrite",
+        materialized="table",
         partition_by={
             "field": "season",
             "data_type": "int64",
@@ -25,6 +23,3 @@ select
     wind_kt,
     pressure_hpa
 from {{ source("raw", "tracks") }}
-{% if is_incremental() %}
-where season >= extract(year from current_date()) - 1
-{% endif %}

@@ -14,3 +14,9 @@ def test_profiles_cap_bytes_billed() -> None:
     assert outputs
     assert all(o["maximum_bytes_billed"] == 1_000_000_000 for o in outputs.values())
     assert all(o["location"] == "US" for o in outputs.values())
+
+
+def test_pull_requests_have_their_own_dataset() -> None:
+    outputs = yaml.safe_load(PROFILES.read_text())["antilles_hurricanes"]["outputs"]
+    assert outputs["ci"]["dataset"] == "ci"
+    assert outputs["prod"]["dataset"] != "ci"

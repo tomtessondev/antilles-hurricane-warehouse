@@ -72,3 +72,11 @@ def test_load_replaces_a_table_partitioned_by_season() -> None:
     assert config.write_disposition == bigquery.WriteDisposition.WRITE_TRUNCATE
     assert config.range_partitioning.field == "season"
     assert config.clustering_fields == ["sid"]
+
+
+def test_provisional_tracks_of_the_current_season_are_kept() -> None:
+    """NOAA marks the current season's storms PROVISIONAL until its post-season review."""
+    rows = list(
+        parse_tracks([HEADER, UNITS, line(**dict(HUGO, SEASON="2026", TRACK_TYPE="PROVISIONAL"))])
+    )
+    assert [r["season"] for r in rows] == [2026]

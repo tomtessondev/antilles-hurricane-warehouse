@@ -21,6 +21,9 @@ IBTRACS_URL = (
     "/v04r01/access/csv/ibtracs.NA.list.v04r01.csv"
 )
 
+# Reviewed tracks, and the current season's storms before NOAA's post-season review.
+TRACK_TYPES = {"main", "PROVISIONAL"}
+
 SCHEMA = [
     bigquery.SchemaField("sid", "STRING", mode="REQUIRED"),
     bigquery.SchemaField("name", "STRING"),
@@ -50,12 +53,12 @@ def _int(text: str | None) -> int | None:
 
 
 def parse_tracks(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
-    """Main-track fixes of North Atlantic storms. Spur tracks (alternative positions of a
+    """Main and provisional fixes of North Atlantic storms. Spur tracks (alternative positions of a
     storm's early or late life) are left out: they would duplicate fixes."""
     reader = csv.DictReader(lines)
     next(reader)  # the units row
     for row in reader:
-        if row["TRACK_TYPE"].strip() != "main" or row["BASIN"].strip() != "NA":
+        if row["TRACK_TYPE"].strip() not in TRACK_TYPES or row["BASIN"].strip() != "NA":
             continue
         yield {
             "sid": row["SID"],

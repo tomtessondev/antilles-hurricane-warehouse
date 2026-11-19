@@ -64,10 +64,11 @@ def test_reloading_days_replaces_them() -> None:
     assert load_kwargs["job_config"].write_disposition == bigquery.WriteDisposition.WRITE_APPEND
 
 
-def test_window_starts_after_the_latest_day_and_ends_a_week_ago() -> None:
+def test_window_reloads_the_last_ten_days_and_ends_a_week_ago() -> None:
+    """The archive can fill or revise its latest days after a first load."""
     assert weather_window(None, date(2026, 11, 18)) == (date(1940, 1, 1), date(2026, 11, 11))
     assert weather_window(date(2026, 11, 1), date(2026, 11, 18)) == (
-        date(2026, 11, 2),
+        date(2026, 10, 22),
         date(2026, 11, 11),
     )
 

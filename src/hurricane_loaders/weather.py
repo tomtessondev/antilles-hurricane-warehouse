@@ -21,6 +21,7 @@ FIRST_DAY = date(1940, 1, 1)
 DAILY = ("precipitation_sum", "wind_speed_10m_max", "wind_gusts_10m_max")
 RATE_LIMIT_WAIT_S = 61
 MAX_ATTEMPTS = 6
+RELOAD_DAYS = 10
 
 SCHEMA = [
     bigquery.SchemaField("island", "STRING", mode="REQUIRED"),
@@ -32,9 +33,10 @@ SCHEMA = [
 
 
 def weather_window(latest: date | None, today: date) -> tuple[date, date]:
-    """From the day after the latest one loaded (or 1940) to a week ago: the reanalysis
-    reaches the archive with a few days' delay."""
-    start = FIRST_DAY if latest is None else latest + timedelta(days=1)
+    """From ten days before the latest one loaded (or 1940) to a week ago: the reanalysis
+    reaches the archive with a few days' delay and can fill or revise its latest days, so
+    they are loaded again (stg_island_weather merges the same ten days)."""
+    start = FIRST_DAY if latest is None else latest - timedelta(days=RELOAD_DAYS)
     return start, today - timedelta(days=7)
 
 

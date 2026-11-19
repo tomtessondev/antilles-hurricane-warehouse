@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
 from hurricane_loaders.cost_check import check, main
@@ -47,3 +48,26 @@ def test_main_fails_when_a_model_is_over_budget(
     with pytest.raises(SystemExit) as exit_info:
         main([str(manifest(tmp_path)), "--budget-mb", "200"])
     assert exit_info.value.code == 1
+
+
+def test_models_whose_parents_are_not_built_yet_are_skipped(tmp_path: Path) -> None:
+    """A pull request that adds a model: its parent tables exist only after the merge, so
+    BigQuery cannot plan it yet. That is not a cost problem."""
+    bq = MagicMock(spec=bigquery.Client)
+
+    def dry_run(sql: str, job_config: bigquery.QueryJobConfig) -> MagicMock:
+        if sql == "select 2":
+            raise NotFound("Table antilles-hurricanes:marts.new_parent was not found")
+        return MagicMock(total_bytes_processed=10_000_000)
+
+    bq.query.side_effect = dry_run
+    assert check(manifest(tmp_path), bq, 200_000_000) == []
+
+
+def test_nodes_without_compiled_code_are_skipped(tmp_path: Path) -> None:
+    path = manifest(tmp_path)
+    data = json.loads(path.read_text())
+    del data["nodes"]["model.p.big"]["compiled_code"]
+    path.write_text(json.dumps(data))
+    bq = client({"select 1": 10_000_000})
+    assert check(path, bq, 200_000_000) == []

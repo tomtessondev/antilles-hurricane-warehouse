@@ -24,7 +24,8 @@ provider "google" {
 }
 
 locals {
-  datasets = ["raw", "staging", "intermediate", "marts"]
+  # `ci` holds the empty tables pull requests build for dbt unit tests; they expire after a day.
+  datasets = ["raw", "staging", "intermediate", "marts", "ci"]
 }
 
 # Public datasets live in the US multi-region and a query cannot mix locations.
@@ -32,6 +33,8 @@ resource "google_bigquery_dataset" "layer" {
   for_each   = toset(local.datasets)
   dataset_id = each.key
   location   = "US"
+
+  default_table_expiration_ms = each.key == "ci" ? 86400000 : null
 }
 
 resource "google_service_account" "runner" {

@@ -30,10 +30,15 @@ def style(ax: plt.Axes) -> None:
 def by_decade(bq: bigquery.Client, project: str) -> None:
     rows = bq.query(
         f"""
-        SELECT decade, category, COUNT(DISTINCT sid) AS storms
-        FROM `{project}.marts.fct_storm_passages`
-        CROSS JOIN UNNEST([DIV(season, 10) * 10]) AS decade
-        WHERE category LIKE 'Cat %'
+        -- Each storm once, at its strongest category near any island ('Cat 1' < 'Cat 5').
+        WITH storms AS (
+            SELECT sid, ANY_VALUE(season) AS season, MAX(category) AS category
+            FROM `{project}.marts.fct_storm_passages`
+            WHERE category LIKE 'Cat %'
+            GROUP BY sid
+        )
+        SELECT DIV(season, 10) * 10 AS decade, category, COUNT(*) AS storms
+        FROM storms
         GROUP BY decade, category
         """,
         job_config=CAP,

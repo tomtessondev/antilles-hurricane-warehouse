@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -40,8 +43,8 @@ jobs:
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
-      - name: dbt unit tests (fixed rows, a few KB each)
-        run: dbt build --profiles-dir . --select test_type:unit
+      - name: dbt unit tests on empty tables in the ci dataset (no data read)
+        run: dbt build --profiles-dir . --target ci --empty --exclude test_type:data
       - name: Cost check (dry runs, nothing billed)
         run: |
           dbt compile --profiles-dir .

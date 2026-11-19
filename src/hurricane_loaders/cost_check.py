@@ -13,6 +13,7 @@ import os
 import sys
 from pathlib import Path
 
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
 
@@ -21,12 +22,16 @@ def check(manifest: Path, bq: bigquery.Client, budget_bytes: int) -> list[tuple[
     nodes = json.loads(manifest.read_text())["nodes"].values()
     over = []
     for node in nodes:
-        if node["resource_type"] != "model":
+        if node["resource_type"] != "model" or "compiled_code" not in node:
             continue
-        job = bq.query(
-            node["compiled_code"],
-            job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False),
-        )
+        try:
+            job = bq.query(
+                node["compiled_code"],
+                job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False),
+            )
+        except NotFound as error:  # a parent this pull request adds: built after the merge
+            print(f"{node['name']}: skipped, {error.message}")
+            continue
         scanned = job.total_bytes_processed or 0
         print(f"{node['name']}: {scanned / 1e6:.1f} MB")
         if scanned > budget_bytes:
