@@ -23,3 +23,6 @@ models:
 seeds:
   antilles_hurricanes:
     +schema: staging
+    islands:
+      # Explicit types: an empty build (CI) cannot infer them from the rows.
+      +column_types: {name: string, lat: float64, lon: float64}
