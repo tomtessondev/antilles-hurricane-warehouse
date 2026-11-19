@@ -30,7 +30,7 @@ make install / check
 - Run `make check` before every commit; it must pass.
 - Never call BigQuery, NOAA or Open-Meteo from pytest: fixtures, respx, mocks.
 - Every BigQuery query is capped (`maximum_bytes_billed`); keep the project far inside the
-  free tier (budget 5 € with alerts).
+  free tier (budget 5 USD, the billing account's currency, with alerts).
 - `terraform apply` only after the owner approves the plan.
 - Keep mypy strict; no `type: ignore` without a comment explaining why.
 - Code, comments, commits and README in English.
