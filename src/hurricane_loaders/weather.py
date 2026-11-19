@@ -6,6 +6,8 @@ the days since the latest one loaded.
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from datetime import date, timedelta
 from typing import Any
 
@@ -17,6 +19,8 @@ from hurricane_loaders.islands import Island
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 FIRST_DAY = date(1940, 1, 1)
 DAILY = ("precipitation_sum", "wind_speed_10m_max", "wind_gusts_10m_max")
+RATE_LIMIT_WAIT_S = 61
+MAX_ATTEMPTS = 6
 
 SCHEMA = [
     bigquery.SchemaField("island", "STRING", mode="REQUIRED"),
@@ -46,20 +50,27 @@ def decades(start: date, end: date) -> list[tuple[date, date]]:
 
 
 def fetch_daily(
-    client: httpx.Client, island: Island, start: date, end: date
+    client: httpx.Client,
+    island: Island,
+    start: date,
+    end: date,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> list[dict[str, Any]]:
-    response = client.get(
-        ARCHIVE_URL,
-        params={
-            "latitude": island.lat,
-            "longitude": island.lon,
-            "start_date": start.isoformat(),
-            "end_date": end.isoformat(),
-            "daily": ",".join(DAILY),
-            "timezone": "UTC",
-        },
-        timeout=120,
-    )
+    """Open-Meteo counts long requests as many calls and answers 429 once the per-minute
+    allowance is spent: wait for the next minute and ask again."""
+    params: dict[str, str | float] = {
+        "latitude": island.lat,
+        "longitude": island.lon,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "daily": ",".join(DAILY),
+        "timezone": "UTC",
+    }
+    for _ in range(MAX_ATTEMPTS):
+        response = client.get(ARCHIVE_URL, params=params, timeout=120)
+        if response.status_code != 429:
+            break
+        sleep(RATE_LIMIT_WAIT_S)
     response.raise_for_status()
     daily = response.json()["daily"]
     return [

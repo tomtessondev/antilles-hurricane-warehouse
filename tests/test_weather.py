@@ -70,3 +70,15 @@ def test_window_starts_after_the_latest_day_and_ends_a_week_ago() -> None:
         date(2026, 11, 2),
         date(2026, 11, 11),
     )
+
+
+@respx.mock
+def test_rate_limited_requests_wait_and_retry() -> None:
+    """A decade of data counts as dozens of calls for Open-Meteo, which answers 429 when
+    the per-minute allowance is spent: the loader waits and asks again."""
+    respx.get(ARCHIVE_URL).mock(side_effect=[httpx.Response(429), httpx.Response(200, json=DAILY)])
+    waits: list[float] = []
+    with httpx.Client() as client:
+        rows = fetch_daily(client, GUADELOUPE, date(1989, 9, 16), date(1989, 9, 17), waits.append)
+    assert len(rows) == 2
+    assert waits == [61]
