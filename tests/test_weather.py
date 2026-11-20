@@ -8,12 +8,15 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import httpx
+import pytest
 import respx
 from google.cloud import bigquery
 
 from hurricane_loaders.islands import ISLANDS
 from hurricane_loaders.weather import (
     ARCHIVE_URL,
+    MAX_ATTEMPTS,
+    MAX_BYTES,
     decades,
     fetch_daily,
     load_weather,
@@ -83,3 +86,35 @@ def test_rate_limited_requests_wait_and_retry() -> None:
         rows = fetch_daily(client, GUADELOUPE, date(1989, 9, 16), date(1989, 9, 17), waits.append)
     assert len(rows) == 2
     assert waits == [61]
+
+
+def test_the_delete_is_capped_too() -> None:
+    """Every query the loaders run carries a byte cap, the DELETE included."""
+    bq = MagicMock(spec=bigquery.Client)
+    load_weather(bq, [], "p", date(2020, 1, 1), date(2020, 1, 2))
+    (_,), kwargs = bq.query.call_args
+    assert kwargs["job_config"].maximum_bytes_billed == MAX_BYTES
+
+
+@respx.mock
+def test_no_wait_after_the_last_attempt() -> None:
+    respx.get(ARCHIVE_URL).mock(return_value=httpx.Response(429))
+    waits: list[float] = []
+    with httpx.Client() as client, pytest.raises(httpx.HTTPStatusError):
+        fetch_daily(client, GUADELOUPE, date(1989, 9, 16), date(1989, 9, 17), waits.append)
+    assert len(waits) == MAX_ATTEMPTS - 1
+
+
+@respx.mock
+def test_server_errors_and_timeouts_are_retried() -> None:
+    respx.get(ARCHIVE_URL).mock(
+        side_effect=[
+            httpx.Response(502),
+            httpx.ReadTimeout("slow"),
+            httpx.Response(200, json=DAILY),
+        ]
+    )
+    waits: list[float] = []
+    with httpx.Client() as client:
+        rows = fetch_daily(client, GUADELOUPE, date(1989, 9, 16), date(1989, 9, 17), waits.append)
+    assert len(rows) == 2 and len(waits) == 2

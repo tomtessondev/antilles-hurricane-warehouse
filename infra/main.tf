@@ -66,11 +66,14 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   workload_identity_pool_provider_id = "github"
   display_name                       = "GitHub OIDC"
   attribute_mapping = {
-    "google.subject"       = "assertion.sub"
-    "attribute.repository" = "assertion.repository"
+    "google.subject"          = "assertion.sub"
+    "attribute.repository"    = "assertion.repository"
+    "attribute.repository_id" = "assertion.repository_id"
   }
   # Only this repository's workflows (main and pull requests from its own branches).
-  attribute_condition = "assertion.repository == '${var.github_repository}'"
+  # The repository's numeric id, not its name: a name can be reused after a rename or a
+  # deletion, the id cannot.
+  attribute_condition = "assertion.repository_id == '${var.github_repository_id}'"
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
@@ -79,7 +82,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 resource "google_service_account_iam_member" "github_runner" {
   service_account_id = google_service_account.runner.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository_id/${var.github_repository_id}"
 }
 
 resource "google_billing_budget" "warehouse" {
