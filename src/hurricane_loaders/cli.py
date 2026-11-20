@@ -13,10 +13,13 @@ from google.cloud import bigquery
 
 from hurricane_loaders.islands import ISLANDS
 from hurricane_loaders.tracks import download_lines, load_tracks, parse_tracks
-from hurricane_loaders.weather import decades, fetch_daily, load_weather, weather_window
-
-# A cap on every query the loaders run: the only one reads a single date column.
-MAX_BYTES = 100_000_000
+from hurricane_loaders.weather import (
+    MAX_BYTES,
+    decades,
+    fetch_daily,
+    load_weather,
+    weather_window,
+)
 
 
 def _latest_weather_day(bq: bigquery.Client, project: str) -> date | None:
@@ -35,8 +38,16 @@ def _latest_weather_day(bq: bigquery.Client, project: str) -> date | None:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="hurricane-load")
     parser.add_argument("source", choices=("tracks", "weather"))
-    parser.add_argument("--since", type=date.fromisoformat, help="first day to (re)load")
+    parser.add_argument(
+        "--since", type=date.fromisoformat, help="weather only: first day to (re)load"
+    )
     args = parser.parse_args(argv)
+    # Checked before connecting to anything: a wrong command fails fast and says why.
+    if args.since and args.source != "weather":
+        parser.error("--since only applies to weather (the tracks file is loaded whole)")
+    last_day = weather_window(None, date.today())[1]
+    if args.since and args.since > last_day:
+        parser.error(f"--since {args.since} is after the last day available ({last_day})")
 
     project = os.getenv("GCP_PROJECT", "antilles-hurricanes")
     bq = bigquery.Client(project=project)

@@ -21,6 +21,8 @@ FIRST_DAY = date(1940, 1, 1)
 DAILY = ("precipitation_sum", "wind_speed_10m_max", "wind_gusts_10m_max")
 RATE_LIMIT_WAIT_S = 61
 MAX_ATTEMPTS = 6
+# A cap on every query the loaders run (they read a date column or delete a few days).
+MAX_BYTES = 100_000_000
 RELOAD_DAYS = 10
 
 SCHEMA = [
@@ -59,7 +61,8 @@ def fetch_daily(
     sleep: Callable[[float], None] = time.sleep,
 ) -> list[dict[str, Any]]:
     """Open-Meteo counts long requests as many calls and answers 429 once the per-minute
-    allowance is spent: wait for the next minute and ask again."""
+    allowance is spent; it also has bad moments (5xx, timeouts). Wait a minute and ask
+    again, up to MAX_ATTEMPTS times, without waiting after the last one."""
     params: dict[str, str | float] = {
         "latitude": island.lat,
         "longitude": island.lon,
@@ -68,10 +71,17 @@ def fetch_daily(
         "daily": ",".join(DAILY),
         "timezone": "UTC",
     }
-    for _ in range(MAX_ATTEMPTS):
-        response = client.get(ARCHIVE_URL, params=params, timeout=120)
-        if response.status_code != 429:
-            break
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            response = client.get(ARCHIVE_URL, params=params, timeout=120)
+        except httpx.TransportError:
+            if attempt == MAX_ATTEMPTS:
+                raise
+        else:
+            if response.status_code != 429 and response.status_code < 500:
+                break
+            if attempt == MAX_ATTEMPTS:
+                break  # raise_for_status below reports the last answer
         sleep(RATE_LIMIT_WAIT_S)
     response.raise_for_status()
     daily = response.json()["daily"]
@@ -104,10 +114,11 @@ def load_weather(
     bq.query(
         f"DELETE FROM `{project}.raw.island_weather` WHERE date BETWEEN @start AND @end",
         job_config=bigquery.QueryJobConfig(
+            maximum_bytes_billed=MAX_BYTES,
             query_parameters=[
                 bigquery.ScalarQueryParameter("start", "DATE", start),
                 bigquery.ScalarQueryParameter("end", "DATE", end),
-            ]
+            ],
         ),
     ).result()
     config = bigquery.LoadJobConfig(

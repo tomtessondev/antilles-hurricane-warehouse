@@ -26,3 +26,9 @@ variable "budget_currency" {
   type        = string
   default     = "USD" # the billing account's currency (checked with gcloud)
 }
+
+variable "github_repository_id" {
+  description = "Numeric id of the repository allowed to act as dbt-runner (gh api repos/OWNER/REPO -q .id)"
+  type        = string
+  default     = "1463645585"
+}
