@@ -58,11 +58,12 @@ islands' weather around them), so the site never holds a cloud credential nor ru
  passage_weather: [{passage_id, date, day_offset, precipitation_mm, wind_max_kmh,
                     gust_max_kmh}],
  by_decade:       [{island, decade, category, passages}],
- tracks:          [{sid, name, season, points: [[lon, lat, wind_kt | null, iso_time]]}]}
+ tracks:          [{sid, name, season, points: [[lon, lat, wind_kt | null]]}]}
 ```
 
 `max_wind_kt` is the strongest wind within 100 km of the island. Tracks are only the
-storms that passed, clipped to lon −100..−20 and lat 0..45, rounded to 0.1°; times are
+storms that passed, clipped to lon −100..−20 and lat 0..45, rounded to 0.1°, their points in time order
+(without the time, which the map does not show); times are
 UTC ISO 8601 with a `Z`, rows ordered so that two runs on the same data give the same
 file. The site validates the same contract; change both together. Five capped queries
 read 8 MB (60 MB billed, BigQuery's 10 MB minimum per query) and write about 0.9 MB

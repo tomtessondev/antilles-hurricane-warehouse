@@ -49,7 +49,6 @@ ROWS: dict[str, list[dict[str, Any]]] = {
             "sid": "S1",
             "name": "MARIA",
             "season": 2017,
-            "iso_time": T0,
             "lon": -61.349,
             "lat": 15.4499,
             "wind_kt": 145,
@@ -58,7 +57,6 @@ ROWS: dict[str, list[dict[str, Any]]] = {
             "sid": "S1",
             "name": "MARIA",
             "season": 2017,
-            "iso_time": T0,
             "lon": -10.0,
             "lat": 50.0,
             "wind_kt": 40,
@@ -67,7 +65,6 @@ ROWS: dict[str, list[dict[str, Any]]] = {
             "sid": "S2",
             "name": "UNNAMED",
             "season": 1851,
-            "iso_time": T0,
             "lon": -60.04,
             "lat": 14.96,
             "wind_kt": None,
@@ -129,13 +126,13 @@ def test_tracks_are_clipped_rounded_and_keep_unknown_wind() -> None:
             "sid": "S1",
             "name": "MARIA",
             "season": 2017,
-            "points": [(-61.3, 15.4, 145, "2017-09-18T06:00:00Z")],
+            "points": [(-61.3, 15.4, 145)],
         },
         {
             "sid": "S2",
             "name": "UNNAMED",
             "season": 1851,
-            "points": [(-60.0, 15.0, None, "2017-09-18T06:00:00Z")],
+            "points": [(-60.0, 15.0, None)],
         },
     ]
 
@@ -150,10 +147,10 @@ def test_tracks_are_only_the_storms_that_passed() -> None:
 
 def test_window_edges_are_kept() -> None:
     edges = [
-        {"lon": -100.0, "lat": 0.0, "wind_kt": 30, "iso_time": T0},
-        {"lon": -20.0, "lat": 45.0, "wind_kt": 30, "iso_time": T0},
-        {"lon": -100.05, "lat": 10.0, "wind_kt": 30, "iso_time": T0},
-        {"lon": -50.0, "lat": -0.1, "wind_kt": 30, "iso_time": T0},
+        {"lon": -100.0, "lat": 0.0, "wind_kt": 30},
+        {"lon": -20.0, "lat": 45.0, "wind_kt": 30},
+        {"lon": -100.05, "lat": 10.0, "wind_kt": 30},
+        {"lon": -50.0, "lat": -0.1, "wind_kt": 30},
     ]
     assert [p[:2] for p in export.clip_points(edges)] == [(-100.0, 0.0), (-20.0, 45.0)]
 
@@ -179,7 +176,7 @@ def test_written_json_is_compact_and_null_stays_null(tmp_path: Path) -> None:
     text = out.read_text()
     assert size == len(text.encode())
     assert ": " not in text and ", " not in text
-    assert json.loads(text)["tracks"][1]["points"] == [[-60.0, 15.0, None, "2017-09-18T06:00:00Z"]]
+    assert json.loads(text)["tracks"][1]["points"] == [[-60.0, 15.0, None]]
 
 
 @pytest.mark.parametrize("argv", [["export"], ["tracks", "--out", "x.json"]])

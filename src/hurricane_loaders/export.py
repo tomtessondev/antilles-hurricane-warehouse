@@ -21,7 +21,7 @@ MAX_BYTES = 100_000_000
 LON_RANGE = (-100.0, -20.0)
 LAT_RANGE = (0.0, 45.0)
 
-Point = tuple[float, float, int | None, str]
+Point = tuple[float, float, int | None]
 
 
 def iso_time(value: datetime) -> str:
@@ -103,7 +103,7 @@ def by_decade(bq: bigquery.Client, project: str) -> list[dict[str, Any]]:
 
 
 def clip_points(fixes: Iterable[dict[str, Any]]) -> list[Point]:
-    """The fixes inside the map's window, as compact `[lon, lat, wind_kt, time]` points
+    """The fixes inside the map's window, as compact `[lon, lat, wind_kt]` points
     rounded to 0.1° (about 11 km, finer than the map draws). Unknown wind stays null."""
     points: list[Point] = []
     for fix in fixes:
@@ -112,9 +112,7 @@ def clip_points(fixes: Iterable[dict[str, Any]]) -> list[Point]:
             and LAT_RANGE[0] <= fix["lat"] <= LAT_RANGE[1]
         ):
             continue
-        points.append(
-            (round(fix["lon"], 1), round(fix["lat"], 1), fix["wind_kt"], iso_time(fix["iso_time"]))
-        )
+        points.append((round(fix["lon"], 1), round(fix["lat"], 1), fix["wind_kt"]))
     return points
 
 
@@ -123,7 +121,7 @@ def tracks(bq: bigquery.Client, project: str) -> list[dict[str, Any]]:
     rows = _rows(
         bq,
         f"""
-        SELECT sid, name, season, iso_time, lon, lat, wind_kt
+        SELECT sid, name, season, lon, lat, wind_kt
         FROM `{project}.staging.stg_tracks`
         WHERE sid IN (SELECT DISTINCT sid FROM `{project}.marts.fct_storm_passages`)
         ORDER BY season, sid, iso_time
