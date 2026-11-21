@@ -70,8 +70,8 @@ UTC ISO 8601 with a `Z`, rows ordered so that two runs on the same data give the
 file. The site validates the same contract; change both together. The export refuses to
 write a document without passages or tracks, or over 1,000,000 bytes: it exits non-zero,
 nothing is published and the site keeps the previous file. Five capped queries
-read 8 MB (60 MB billed, BigQuery's 10 MB minimum per query) and write about 0.9 MB
-(150 KB gzipped): 229 storms, 17,370 track points, 510 passages.
+read 8 MB (60 MB billed, BigQuery's 10 MB minimum per query) and write about 0.54 MB
+(105 KB gzipped): 229 storms, 17,370 track points, 510 passages.
 
 ## Sources
 
