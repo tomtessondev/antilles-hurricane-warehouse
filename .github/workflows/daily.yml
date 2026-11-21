@@ -11,7 +11,7 @@ jobs:
   load-and-build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # pushes the data branch
       id-token: write
     env:
       GCP_PROJECT: antilles-hurricanes
@@ -28,3 +28,17 @@ jobs:
       - run: hurricane-load tracks
       - run: hurricane-load weather
       - run: dbt build --profiles-dir .
+      - run: hurricane-load export --out "$RUNNER_TEMP/publish/hurricanes.json"
+      # The portfolio site reads hurricanes.json from the data branch. It holds a single
+      # commit, replaced on every run, so the repository does not grow by one export a day.
+      - name: Publish the export to the data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP/publish"
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hurricanes.json
+          git commit -q -m "Hurricanes export from run $GITHUB_RUN_ID"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data
