@@ -11,12 +11,14 @@ jobs:
   load-and-build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # pushes the data branch
+      contents: read
       id-token: write
     env:
       GCP_PROJECT: antilles-hurricanes
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -29,9 +31,28 @@ jobs:
       - run: hurricane-load weather
       - run: dbt build --profiles-dir .
       - run: hurricane-load export --out "$RUNNER_TEMP/publish/hurricanes.json"
-      # The portfolio site reads hurricanes.json from the data branch. It holds a single
-      # commit, replaced on every run, so the repository does not grow by one export a day.
-      - name: Publish the export to the data branch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hurricanes
+          path: ${{ runner.temp }}/publish/hurricanes.json
+          if-no-files-found: error
+          retention-days: 7
+
+  # The portfolio site reads hurricanes.json from the data branch. It holds a single commit,
+  # replaced on every run, so the repository does not grow by one export a day. A job of its
+  # own, so the write token never shares a runner with the cloud credentials or the build.
+  publish:
+    needs: load-and-build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hurricanes
+          path: ${{ runner.temp }}/publish
+      - name: Force-push the export as the data branch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

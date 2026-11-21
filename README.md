@@ -45,7 +45,9 @@ GitHub Actions runs it all: `ci.yml` on every pull request, `daily.yml` at 06:00
 
 After the build, `hurricane-load export --out hurricanes.json` writes the marts as one
 compact JSON document, and the daily workflow force-pushes it as the single commit of the
-`data` branch, so the repository does not grow by one export a day:
+`data` branch, so the repository does not grow by one export a day. The build job reads
+the repository only; a separate `publish` job, on `main` only, gets the file as a workflow
+artifact and is the one job allowed to write (no checkout, no cloud credential):
 **<https://raw.githubusercontent.com/tomtessondev/antilles-hurricane-warehouse/data/hurricanes.json>**.
 The portfolio site's hurricane explorer reads it (a map of the tracks, the passages and the
 islands' weather around them), so the site never holds a cloud credential nor runs a query.
