@@ -15,6 +15,8 @@ can read.
 
 - Python 3.12+ package `src/hurricane_loaders` (loaders, CLI `hurricane-load`)
   - `islands.py`: the six island points (same as `seeds/islands.csv`, a test checks it)
+  - `export.py`: `hurricane-load export --out FILE`, the marts as `hurricanes.json` for the
+    portfolio site's explorer; `daily.yml` publishes it to the one-commit `data` branch
 - dbt on BigQuery (project `antilles-hurricanes`, location `US`)
 - pytest (HTTP and the BigQuery client mocked), ruff, mypy --strict
 
@@ -31,6 +33,8 @@ make install / check
 - Never call BigQuery, NOAA or Open-Meteo from pytest: fixtures, respx, mocks.
 - Every BigQuery query is capped (`maximum_bytes_billed`); keep the project far inside the
   free tier (budget 5 USD, the billing account's currency, with alerts).
+- `hurricanes.json` is a contract with the site (`antilles-data-pipeline/dashboard`,
+  `src/lib/hurricanes.ts`): change both together, and keep the file under 1 MB.
 - `terraform apply` only after the owner approves the plan.
 - Keep mypy strict; no `type: ignore` without a comment explaining why.
 - Code, comments, commits and README in English.

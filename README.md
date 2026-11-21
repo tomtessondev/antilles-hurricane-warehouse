@@ -39,7 +39,39 @@ Open-Meteo archive (ERA5, daily, 1940→) ────┘                       
 ```
 
 GitHub Actions runs it all: `ci.yml` on every pull request, `daily.yml` at 06:00 UTC
-(load, then `dbt build`), `docs.yml` on `main` (dbt docs to GitHub Pages).
+(load, `dbt build`, then the JSON export), `docs.yml` on `main` (dbt docs to GitHub Pages).
+
+## Export for the portfolio site
+
+After the build, `hurricane-load export --out hurricanes.json` writes the marts as one
+compact JSON document, and the daily workflow force-pushes it as the single commit of the
+`data` branch, so the repository does not grow by one export a day. The build job reads
+the repository only; a separate `publish` job, on `main` only, gets the file as a workflow
+artifact and is the one job allowed to write (no checkout, no cloud credential):
+**<https://raw.githubusercontent.com/tomtessondev/antilles-hurricane-warehouse/data/hurricanes.json>**.
+The portfolio site's hurricane explorer reads it (a map of the tracks, the passages and the
+islands' weather around them), so the site never holds a cloud credential nor runs a query.
+
+```text
+{generated_at,
+ islands:         [{island, lat, lon}],
+ passages:        [{passage_id, sid, name, season, island, closest_km, closest_time,
+                    max_wind_kt, category}],
+ passage_weather: [{passage_id, date, day_offset, precipitation_mm, wind_max_kmh,
+                    gust_max_kmh}],
+ by_decade:       [{island, decade, category, passages}],
+ tracks:          [{sid, name, season, points: [[lon, lat, wind_kt | null]]}]}
+```
+
+`max_wind_kt` is the strongest wind within 100 km of the island. Tracks are only the
+storms that passed, clipped to lon −100..−20 and lat 0..45, rounded to 0.1°, their points in time order
+(without the time, which the map does not show); times are
+UTC ISO 8601 with a `Z`, rows ordered so that two runs on the same data give the same
+file. The site validates the same contract; change both together. The export refuses to
+write a document without passages or tracks, or over 1,000,000 bytes: it exits non-zero,
+nothing is published and the site keeps the previous file. Five capped queries
+read 8 MB (60 MB billed, BigQuery's 10 MB minimum per query) and write about 0.54 MB
+(105 KB gzipped): 229 storms, 17,370 track points, 510 passages.
 
 ## Sources
 
@@ -110,6 +142,7 @@ make load                           # tracks, then weather (the first run fetche
 make dbt-build                      # seeds, models, unit and data tests
 make cost-check                     # dry runs of every model
 python scripts/charts.py            # the README charts
+hurricane-load export --out hurricanes.json   # the site's JSON (reads ~8 MB)
 ```
 
 ## Tests
@@ -117,7 +150,8 @@ python scripts/charts.py            # the README charts
 - **pytest** (no network): parsing the IBTrACS file (units row, blanks, spur tracks, US
   then WMO values), the weather request and its rate-limit retry, reloading days without
   duplicates, the cost check, the byte cap in the profile, the island points matching the
-  seed.
+  seed, the export's contract (clipping, rounding, unknown wind kept as null, the cap on
+  every query).
 - **dbt unit tests** (fixed rows): a fix 94 km from an island counts and one 106 km away
   does not; one passage per storm and island with its own closest point; every
   Saffir-Simpson boundary; unknown wind gives no category.
