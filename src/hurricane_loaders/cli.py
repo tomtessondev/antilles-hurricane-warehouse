@@ -59,7 +59,10 @@ def main(argv: list[str] | None = None) -> None:
     bq = bigquery.Client(project=project)
     if args.source == "export":
         document = export.build(bq, project, datetime.now(UTC))
-        size = export.write(document, args.out)
+        try:
+            size = export.write(document, args.out)
+        except export.ExportError as error:
+            raise SystemExit(f"hurricane-load export: {error}") from error
         points = sum(len(track["points"]) for track in document["tracks"])
         print(
             f"Wrote {args.out} ({size:,} bytes): {len(document['tracks'])} storms, "

@@ -17,6 +17,8 @@ from typing import Any
 from google.cloud import bigquery
 
 MAX_BYTES = 100_000_000
+# The contract with the site: it downloads the file whole.
+MAX_FILE_BYTES = 1_000_000
 # The map's window: the North Atlantic, from the Gulf of Mexico to the Azores.
 LON_RANGE = (-100.0, -20.0)
 LAT_RANGE = (0.0, 45.0)
@@ -146,9 +148,21 @@ def build(bq: bigquery.Client, project: str, now: datetime) -> dict[str, Any]:
     }
 
 
+class ExportError(Exception):
+    """The document must not reach the site: the published file is left as it was."""
+
+
 def write(document: dict[str, Any], out: Path) -> int:
-    """Compact JSON (no spaces): the site downloads it whole. Returns the size in bytes."""
-    text = json.dumps(document, separators=(",", ":"), ensure_ascii=False)
+    """Compact JSON (no spaces): the site downloads it whole. Returns the size in bytes.
+
+    Refuses, before writing anything, an export without passages or tracks (a broken
+    build would otherwise empty the site's explorer) or over MAX_FILE_BYTES."""
+    for key in ("passages", "tracks"):
+        if not document[key]:
+            raise ExportError(f"{key} is empty: refusing to write {out}")
+    data = json.dumps(document, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    if len(data) > MAX_FILE_BYTES:
+        raise ExportError(f"{len(data):,} bytes is over the {MAX_FILE_BYTES:,}-byte limit")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(text, encoding="utf-8")
-    return len(text.encode("utf-8"))
+    out.write_bytes(data)
+    return len(data)

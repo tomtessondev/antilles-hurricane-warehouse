@@ -73,12 +73,14 @@ ROWS: dict[str, list[dict[str, Any]]] = {
 }
 
 
-def fake_client() -> MagicMock:
+def fake_client(empty: str | None = None) -> MagicMock:
+    """`empty` names a table that returns no rows."""
+
     def query(sql: str, job_config: bigquery.QueryJobConfig) -> MagicMock:
         # The tracks query names the passages too: match on its FROM clause.
         table = next(t for t in ROWS if f".{t}`" in sql.split("WHERE")[0])
         job = MagicMock()
-        job.result.return_value = ROWS[table]
+        job.result.return_value = [] if table == empty else ROWS[table]
         return job
 
     bq = MagicMock(spec=bigquery.Client)
@@ -185,3 +187,32 @@ def test_out_goes_with_export_only(argv: list[str], capsys: pytest.CaptureFixtur
         main(argv)
     assert exit_info.value.code == 2
     assert "--out" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("empty", ["marts.fct_storm_passages", "staging.stg_tracks"])
+def test_an_empty_export_is_refused_and_nothing_written(empty: str, tmp_path: Path) -> None:
+    out = tmp_path / "hurricanes.json"
+    with pytest.raises(export.ExportError, match="empty"):
+        export.write(export.build(fake_client(empty), "p", T0), out)
+    assert not out.exists()
+
+
+def test_an_export_over_one_megabyte_is_refused_and_nothing_written(tmp_path: Path) -> None:
+    doc = export.build(fake_client(), "p", T0)
+    doc["tracks"][0]["points"] *= 100_000
+    out = tmp_path / "hurricanes.json"
+    with pytest.raises(export.ExportError, match="1,000,000"):
+        export.write(doc, out)
+    assert not out.exists()
+
+
+def test_the_cli_exits_non_zero_on_a_refused_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bq = fake_client("staging.stg_tracks")
+    monkeypatch.setattr(bigquery, "Client", lambda project: bq)
+    out = tmp_path / "hurricanes.json"
+    with pytest.raises(SystemExit) as exit_info:
+        main(["export", "--out", str(out)])
+    assert exit_info.value.code not in (0, None)
+    assert not out.exists()
